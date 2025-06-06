@@ -6,15 +6,27 @@
 #include <math.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
+#include "MPU9250.h"
 #include <dirent.h>
 #include <iostream>
 #include <filesystem>
 #include <sys/stat.h>
 #include <sys/timeb.h>
 #include <sys/time.h>
+#ifdef PICO_PLATFORM
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+#define I2C_PORT i2c0
+#define digitalWrite(pin,val) gpio_put(pin,val)
+#define digitalRead(pin) gpio_get(pin)
+#define pinMode(pin,mode) {gpio_init(pin); gpio_set_dir(pin,mode);}
+#define INPUT 0
+#define OUTPUT 1
+#else
 #include <wiringPi.h>
+#endif
 
-MPU6050 mpu;
+MPU9250 mpu;
 
 #define OUTPUT_READABLE_ACCEL
 #define OUTPUT_READABLE_GYRO
@@ -67,13 +79,30 @@ long mtime, seconds, useconds,timestart,secondsb, usecondsb,timestartb;
 void setup() {
     // initialize device
     printf("Initializing I2C devices...\n");
+#ifdef PICO_PLATFORM
+    i2c_init(I2C_PORT, 400 * 1000);
+    gpio_set_function(4, GPIO_FUNC_I2C);
+    gpio_set_function(5, GPIO_FUNC_I2C);
+    gpio_pull_up(4);
+    gpio_pull_up(5);
+#endif
     mpu.initialize();
     
-    //wiringPi initialize
+    // initialize GPIO
+#ifdef PICO_PLATFORM
+    stdio_init_all();
+    gpio_init(lred);
+    gpio_set_dir(lred, GPIO_OUT);
+    gpio_init(lgreen);
+    gpio_set_dir(lgreen, GPIO_OUT);
+    gpio_init(button);
+    gpio_set_dir(button, GPIO_IN);
+#else
     wiringPiSetup();
     pinMode(lred,OUTPUT);
     pinMode(lgreen,OUTPUT);
     pinMode(button,INPUT);
+#endif
     
     digitalWrite(lred,HIGH);
     digitalWrite(lgreen,LOW);
@@ -169,7 +198,7 @@ void loop() {
             digitalWrite(lred,LOW);
             DIR *d;
             struct dirent *dir;
-            d = opendir ("/home/pi/MPU6050-Pi-Demo/Datas");
+            d = opendir ("Datas");
             int dir_len=0;
             if (d != NULL){
                 while ((dir = readdir(d)) != NULL)
@@ -180,7 +209,7 @@ void loop() {
             }  
 
             printf("%d",dir_len);
-            namepaste="/home/pi/MPU6050-Pi-Demo/Datas/data_"+std::to_string(dir_len-2);
+            namepaste="Datas/data_"+std::to_string(dir_len-2);
             printf(namepaste.c_str());
 
             std::string new_dir = namepaste;

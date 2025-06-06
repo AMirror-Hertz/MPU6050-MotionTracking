@@ -44,6 +44,10 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#ifdef PICO_PLATFORM
+#include "hardware/i2c.h"
+#include "pico/stdlib.h"
+#else
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -52,7 +56,14 @@ THE SOFTWARE.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/i2c-dev.h>
+#endif
 #include "I2Cdev.h"
+
+#ifdef PICO_PLATFORM
+#ifndef I2C_PORT
+#define I2C_PORT i2c0
+#endif
+#endif
 
 /** Default constructor.
  */
@@ -171,6 +182,12 @@ int8_t I2Cdev::readWord(uint8_t devAddr, uint8_t regAddr, uint16_t *data, uint16
  * @return Number of bytes read (-1 indicates failure)
  */
 int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout) {
+#ifdef PICO_PLATFORM
+    int ret = i2c_write_blocking(I2C_PORT, devAddr, &regAddr, 1, true);
+    if (ret != 1) return -1;
+    ret = i2c_read_blocking(I2C_PORT, devAddr, data, length, false);
+    return ret;
+#else
     int8_t count = 0;
     int fd = open("/dev/i2c-1", O_RDWR);
 
@@ -201,6 +218,7 @@ int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8
     close(fd);
 
     return count;
+#endif
 }
 
 /** Read multiple words from a 16-bit device register.
@@ -212,13 +230,15 @@ int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8
  * @return Number of words read (0 indicates failure)
  */
 int8_t I2Cdev::readWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16_t *data, uint16_t timeout) {
-    int8_t count = 0;
-
-    printf("ReadWords() not implemented\n");
-    // Use readBytes() and potential byteswap
-    *data = 0; // keep the compiler quiet
-
-    return count;
+    int8_t ret;
+    uint8_t buffer[128];
+    if (length * 2 > sizeof(buffer)) return -1;
+    ret = readBytes(devAddr, regAddr, length * 2, buffer, timeout);
+    if (ret != length * 2) return -1;
+    for (int i = 0; i < length; i++) {
+        data[i] = ((uint16_t)buffer[i * 2] << 8) | buffer[i * 2 + 1];
+    }
+    return length;
 }
 
 /** write a single bit in an 8-bit device register.
@@ -335,6 +355,14 @@ bool I2Cdev::writeWord(uint8_t devAddr, uint8_t regAddr, uint16_t data) {
  * @return Status of operation (true = success)
  */
 bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_t* data) {
+#ifdef PICO_PLATFORM
+    uint8_t buf[128];
+    if (length > 127) return false;
+    buf[0] = regAddr;
+    memcpy(buf + 1, data, length);
+    int count = i2c_write_blocking(I2C_PORT, devAddr, buf, length + 1, false);
+    return count == length + 1;
+#else
     int8_t count = 0;
     uint8_t buf[128];
     int fd;
@@ -369,6 +397,7 @@ bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_
     close(fd);
 
     return TRUE;
+#endif
 }
 
 /** Write multiple words to a 16-bit device register.
@@ -379,6 +408,17 @@ bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_
  * @return Status of operation (true = success)
  */
 bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16_t* data) {
+#ifdef PICO_PLATFORM
+    uint8_t buf[128];
+    if (length > 63) return false;
+    buf[0] = regAddr;
+    for (int i = 0; i < length; i++) {
+        buf[i*2+1] = data[i] >> 8;
+        buf[i*2+2] = data[i];
+    }
+    int count = i2c_write_blocking(I2C_PORT, devAddr, buf, length*2 + 1, false);
+    return count == (length*2 + 1);
+#else
     int8_t count = 0;
     uint8_t buf[128];
     int i, fd;
@@ -418,6 +458,7 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
     }
     close(fd);
     return TRUE;
+#endif
 }
 
 /** Default timeout value for read operations.

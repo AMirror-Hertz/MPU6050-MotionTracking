@@ -29,13 +29,25 @@ My prototype:
 
 # Instruction
 
- - You need libgtkmm-3.0-dev installed in order to build. 
- - You need wiring-pi installed in order to build collect_data. http://wiringpi.com/download-and-install/
+ - You need libgtkmm-3.0-dev installed in order to build on a Raspberry Pi running Linux.
+ - You need wiring-pi installed in order to build collect_data on Linux. http://wiringpi.com/download-and-install/
 
 
 **NOTE:** If you have a revision 2 Raspberry Pi you need to edit I2Cdev.cpp and change all references to "/dev/i2c-0" to read "/dev/i2c-1".
 
 Run "make" on your terminal. It will create two files: **"collect_data"** and **"IMU_zero"**.
+
+## Building for Raspberry Pi Pico
+
+Install the Pico SDK and set the `PICO_SDK_PATH` environment variable. Then from this directory run:
+
+```bash
+mkdir build && cd build
+cmake ..
+make
+```
+
+This will produce UF2 images for the Pico.
 ## IMU_zero
   
 Start the program and wait, after some time it will give you the maximum and minimum values ​​for the sensor calibration. Go to the code "collect_data" and modify the offsets to your values.
