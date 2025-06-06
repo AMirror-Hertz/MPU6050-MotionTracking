@@ -6,14 +6,14 @@
 #include <math.h>
 #include "I2Cdev.h"
 #include <cstdio>
-#include "MPU6050.h"
+#include "MPU9250.h"
 
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here
 // AD0 low = 0x68 (default for InvenSense evaluation board)
 // AD0 high = 0x69
-MPU6050 accelgyro;
-//MPU6050 accelgyro(0x69); // <-- use for AD0 high
+MPU9250 accelgyro;
+//MPU9250 accelgyro(0x69); // <-- use for AD0 high
 
 
 const char LBRACKET = '[';
@@ -94,11 +94,11 @@ void Initialize()
 	printf("Testing device connections...\n");
 	if(!accelgyro.testConnection()) 
 	{
-		printf("MPU6050 connection failed\n");
+                printf("MPU9250 connection failed\n");
 		return;
 	}
 
-	printf("MPU6050 connection successful\n"); 
+        printf("MPU9250 connection successful\n");
 	accelgyro.initialize();
 	printf("Initialization done!\n");
 } // Initialize
